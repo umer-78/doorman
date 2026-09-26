@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doorman: prompt-injection defences, measured</title>
+  <meta name="description" content="A recruiting agent reads resumes and portfolio pages. Doorman measures five defences against 60 red-team attacks and 303 injections written by other people, with a model that obeys anything it reads.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f766e'/><path d='M10 25V8h8a6 6 0 0 1 0 12h-4v5z' fill='white'/></svg>">
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --line: #dfe3e8; --text: #111418; --muted: #5b6472;
+      --accent: #0f766e; --accent-soft: #e6f4f2; --bad: #b42318; --bad-soft: #fdecea; --good: #067647; --good-soft: #e7f6ee;
+      --warn: #9a5b00; --warn-soft: #fff4e0; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0c0f13; --surface: #151a21; --surface-2: #1c222b; --line: #2a323d; --text: #eef1f5; --muted: #9aa4b2;
+        --accent: #2dd4bf; --accent-soft: rgb(45 212 191 / .12); --bad: #ff7b72; --bad-soft: rgb(255 123 114 / .12);
+        --good: #56d364; --good-soft: rgb(86 211 100 / .12); --warn: #e3b341; --warn-soft: rgb(227 179 65 / .12); color-scheme: dark; }
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15.5px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 1060px; margin: 0 auto; padding: 0 16px 48px; }
+    header { padding: 28px 0 8px; }
+    .crumb { font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
+    h1 { margin: 10px 0 6px; font-size: clamp(28px, 4.5vw, 40px); letter-spacing: -.02em; line-height: 1.1; }
+    .lede { margin: 0; max-width: 760px; color: var(--muted); font-size: 16.5px; }
+    .links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px; text-decoration: none; cursor: pointer; }
+    .btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+    @media (prefers-color-scheme: dark) { .btn.primary { color: #06201d; } }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin-top: 18px; min-width: 0; }
+    .card h2 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.01em; }
+    .card > p.sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+    td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tr.best td { background: var(--accent-soft); font-weight: 600; }
+    .bar { display: inline-block; vertical-align: middle; height: 8px; border-radius: 99px; background: var(--bad); margin-left: 8px; min-width: 2px; opacity: .8; }
+    .scroll { overflow-x: auto; }
+    .controls { display: grid; gap: 12px; margin-bottom: 16px; }
+    .control label, .control .label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+    .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+    .seg button { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: 600 13.5px var(--font); cursor: pointer; }
+    .seg button[aria-pressed="true"] { background: var(--accent); border-color: transparent; color: #fff; }
+    @media (prefers-color-scheme: dark) { .seg button[aria-pressed="true"] { color: #06201d; } }
+    button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    .panel { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+    .panel h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.55 var(--mono); }
+    .chip { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+    .chip.bad { background: var(--bad-soft); color: var(--bad); }
+    .chip.good { background: var(--good-soft); color: var(--good); }
+    .chip.warn { background: var(--warn-soft); color: var(--warn); }
+    .chip.plain { background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+    .results { display: grid; gap: 8px; }
+    details.result { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    details.result summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; cursor: pointer; list-style: none; }
+    details.result summary::-webkit-details-marker { display: none; }
+    details.result summary .name { font-weight: 700; min-width: 170px; }
+    details.result summary .by { color: var(--muted); font-size: 13px; }
+    details.result ol { margin: 0; padding: 0 14px 12px 34px; font-size: 13.5px; color: var(--muted); }
+    details.result ol li { margin: 3px 0; }
+    details.result ol code { font-family: var(--mono); font-size: 12.5px; color: var(--text); word-break: break-word; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+    .fact { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .fact .big { font-size: 26px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .fact p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+    ul.plain { margin: 8px 0 0; padding-left: 18px; }
+    ul.plain li { margin: 5px 0; }
+    footer { margin-top: 30px; color: var(--muted); font-size: 13px; text-align: center; }
+    .loading { color: var(--muted); }
+    @media (max-width: 640px) { .card { padding: 16px; } details.result summary .name { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="crumb" href="https://umer-78.github.io/">← All projects</a>
+      <h1>Doorman</h1>
+      <p class="lede">An AI recruiting agent reads every resume and portfolio page it is sent, and some of them talk back. Doorman measures five defences against 60 red-team attacks and 303 injections written by other people, with a model that obeys anything it reads.</p>
+      <div class="links">
+        <a class="btn primary" href="#try">Try an attack</a>
+        <a class="btn" href="https://github.com/umer-78/doorman">Code and method</a>
+      </div>
+    </header>
+
+    <section class="card" aria-labelledby="h-results">
+      <h2 id="h-results">What each defence stops</h2>
+      <p class="sub">Share of attacks that did what the attacker wanted, and share of 100 real, benign applications the defences got in the way of. The model obeys every instruction it can read, so these numbers are what the layers stop by themselves.</p>
+      <div class="scroll"><table id="headline"><thead><tr><th>Configuration</th><th>Suite (60)</th><th>Held-out (303)</th><th>Benign flagged (100)</th></tr></thead><tbody><tr><td class="loading" colspan="4">Loading…</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card" id="try" aria-labelledby="h-try">
+      <h2 id="h-try">Try an attack</h2>
+      <p class="sub">Pick where the payload hides, what it wants and how it is worded. Each one is a real PDF you can open; below it is what every configuration did with it.</p>
+      <div class="controls">
+        <div class="control"><span class="label" id="l-loc">Where it hides</span><div class="seg" id="loc" role="group" aria-labelledby="l-loc"></div></div>
+        <div class="control"><span class="label" id="l-goal">What it wants</span><div class="seg" id="goal" role="group" aria-labelledby="l-goal"></div></div>
+        <div class="control"><span class="label" id="l-ph">How it is worded</span><div class="seg" id="phrasing" role="group" aria-labelledby="l-ph"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>The payload</h3>
+          <pre id="payload"></pre>
+          <p id="where" style="margin:10px 0 0;font-size:13.5px;color:var(--muted)"></p>
+          <p style="margin:10px 0 0"><a class="btn" id="pdfLink" href="#" target="_blank" rel="noopener">Open the PDF</a></p>
+        </div>
+        <div class="panel">
+          <h3>What the parser found</h3>
+          <div id="parsed"></div>
+        </div>
+      </div>
+      <h3 style="margin:18px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">What each configuration did</h3>
+      <div class="results" id="results"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-guard">
+      <h2 id="h-guard">Why the classifier is not the control</h2>
+      <p class="sub">The input guard (rules plus a character n-gram model) never saw the held-out attacks. It does well on game-style attacks and badly on plain requests, and any attacker gets as many tries as they like.</p>
+      <div class="facts" id="guardFacts"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-notes">
+      <h2 id="h-notes">What went wrong on the way</h2>
+      <ul class="plain" id="notes">
+        <li><b>The near-white bypass.</b> The first hidden-text rule called text hidden if it was whiter than 92% or smaller than 4 points. Text at 90% grey and 4.2 points passed both and nobody could read it: <span id="bypass"></span>. Text is now judged by its contrast against the page, and no benign resume lost a word to the new rule.</li>
+        <li><b>"About me" looked like an attack.</b> The guard flagged every benign portfolio page, because a short line like "About me" is closer to the attacks it learned from than to resume text. The benign numbers only counted resumes, so it went unnoticed until the held-out result came back suspiciously perfect. Short lines are now only read with their neighbour, and every flag on a benign application counts as a false alarm.</li>
+        <li><b>Letter-spaced text.</b> "i g n o r e &nbsp;a l l …" in the visible resume got past the guard, because collapsing the spaces also removed the word breaks the rules look for. Long runs of spaced-out letters are now flagged as a disguise in themselves.</li>
+        <li><b>The one false alarm left.</b> A TV producer's resume, a long list of show titles, scores 0.97. It goes to a person, which is the price of running the guard at all.</li>
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="h-method">
+      <h2 id="h-method">How it is measured</h2>
+      <ul class="plain">
+        <li><b>The agent</b> screens one application at a time: it reads the resume PDF, fetches the portfolio page, scores the applicant, moves them on in the tracking system and emails them.</li>
+        <li><b>The attacks</b>: 4 places to hide (visible text, hidden text, PDF metadata, the portfolio page) × 5 goals (inflate the score, jump to offer, email out the internal notes, phish the other applicants, reject them) × 3 wordings (plain, an instruction from "HR", obfuscated). Success is checked on what actually happened in the system, not on what the model said.</li>
+        <li><b>Held-out attacks</b>: the BIPIA test set and a held-out slice of the Tensor Trust game, each given a goal and put on the attacker's portfolio page.</li>
+        <li><b>Benign applications</b>: 100 real resumes from a public corpus that the guard never trained on, with portfolio pages.</li>
+        <li><b>The model</b> is the worst case: it screens honestly, then does whatever any text it read told it to. A real model can be plugged in; its numbers are not published here.</li>
+      </ul>
+    </section>
+
+    <footer>Built by <a href="https://github.com/umer-78">Umer Hashmi</a> · MIT licence · The demo carries each payload in a fictional resume; the benchmark used real ones.</footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const LAYER = { strip: 'hidden-text stripping', guard: 'the guard', allowlist: 'the tool allowlist', isolation: 'isolation', output: 'output scanning' };
+    const WHERE = {
+      visible: 'Printed in the resume like any other paragraph. A person reading it would see it too.',
+      hidden: 'Hidden in the PDF: white on white, 1-point type, or placed off the page. Open the PDF and you will not see it.',
+      metadata: 'In the PDF’s subject field. No page shows it, but a careless pipeline passes it to the model.',
+      'tool result': 'On the applicant’s portfolio page, which the agent fetches with a tool. The resume itself is clean.',
+    };
+    const pct = (k, n) => `${k}/${n} (${Math.round((100 * k) / n)}%)`;
+    const el = (tag, attrs = {}, ...kids) => {
+      const e = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else e.setAttribute(k, v);
+      }
+      e.append(...kids);
+      return e;
+    };
+    let data, pick = { location: 'hidden', goal: 'exfiltrate', phrasing: 'direct' };
+
+    function headline() {
+      const body = $('headline').tBodies[0];
+      body.textContent = '';
+      for (const name of data.configs) {
+        const s = data.bench.configs[name];
+        const cell = (k, n) => {
+          const td = el('td', { class: 'num' }, pct(k, n));
+          if (k) td.append(el('span', { class: 'bar', style: `width:${Math.max(3, Math.round((60 * k) / n))}px`, 'aria-hidden': 'true' }));
+          return td;
+        };
+        const tr = el('tr', name === 'all layers' ? { class: 'best' } : {}, el('td', { text: name }),
+          cell(s.succeeded, s.attacks), cell(s.heldout_succeeded, s.heldout), el('td', { class: 'num', text: pct(s.benign_flagged, s.benign) }));
+        body.append(tr);
+      }
+      const g = data.bench.guard, bp = data.bench.bypass;
+      const facts = [
+        [pct(g.by_source['Tensor Trust'].caught, g.by_source['Tensor Trust'].attacks), 'of the Tensor Trust attacks caught: they read like attacks.'],
+        [pct(g.by_source.BIPIA.caught, g.by_source.BIPIA.attacks), 'of BIPIA’s plain requests caught, such as “Write a script to rename all files in a directory”.'],
+        [pct(data.bench.configs['input filtering'].heldout_succeeded, data.bench.configs['input filtering'].heldout), 'of held-out attacks still worked with input filtering alone.'],
+        [pct(g.benign_flagged, g.benign), 'of held-out benign resumes and portfolio pages flagged at the chosen threshold.'],
+      ];
+      $('guardFacts').replaceChildren(...facts.map(([big, text]) => el('div', { class: 'fact' }, el('div', { class: 'big', text: big }), el('p', { text }))));
+      $('bypass').textContent = `${bp.first.succeeded} of ${bp.first.attacks} near-white attacks worked under that rule, ${bp.contrast.succeeded} of ${bp.contrast.attacks} under the contrast rule`;
+    }
+
+    function segment(id, values, key) {
+      const box = $(id);
+      box.replaceChildren(...values.map((v) => {
+        const b = el('button', { type: 'button', 'aria-pressed': String(pick[key] === v), text: v });
+        b.addEventListener('click', () => { pick[key] = v; show(); });
+        return b;
+      }));
+    }
+
+    function show() {
+      segment('loc', data.locations, 'location');
+      segment('goal', data.goals, 'goal');
+      segment('phrasing', data.phrasings, 'phrasing');
+      const a = data.attacks.find((x) => x.location === pick.location && x.goal === pick.goal && x.phrasing === pick.phrasing);
+      if (!a) return;
+      history.replaceState(null, '', `#${a.id}`);
+      $('payload').textContent = a.payload;
+      $('where').textContent = WHERE[a.location];
+      $('pdfLink').href = a.pdf;
+      const parsed = [];
+      parsed.push(el('p', { style: 'margin:0 0 6px;font-size:13px;color:var(--muted)', text: 'The end of the text a person sees:' }), el('pre', { text: a.visible.split('\n').slice(-6).join('\n') }));
+      if (a.hidden.length) {
+        parsed.push(el('p', { style: 'margin:12px 0 6px;font-size:13px;color:var(--muted)', text: 'Text no person sees:' }));
+        for (const [why, text] of a.hidden) parsed.push(el('p', { style: 'margin:0 0 6px' }, el('span', { class: 'chip warn', text: why }), ' ', el('code', { style: 'font-family:var(--mono);font-size:12.5px;word-break:break-word', text: text.slice(0, 160) + (text.length > 160 ? '…' : '') })));
+      }
+      if (a.location === 'metadata') parsed.push(el('p', { style: 'margin:12px 0 6px;font-size:13px;color:var(--muted)', text: 'PDF subject field:' }), el('pre', { text: a.subject }));
+      if (a.page) parsed.push(el('p', { style: 'margin:12px 0 6px;font-size:13px;color:var(--muted)', text: 'The portfolio page the agent fetches:' }), el('pre', { text: a.page }));
+      $('parsed').replaceChildren(...parsed);
+      $('results').replaceChildren(...data.configs.map((name) => {
+        const r = a.results[name];
+        const layers = [...new Set(r.events.map((e) => e.layer))].filter((l) => l !== 'strip' || !r.worked);
+        const chip = r.worked ? el('span', { class: 'chip bad', text: 'Attack worked' })
+          : r.held ? el('span', { class: 'chip warn', text: 'Sent to a person' }) : el('span', { class: 'chip good', text: 'Stopped' });
+        const by = r.worked ? '' : layers.length ? `by ${layers.map((l) => LAYER[l]).join(' and ')}` : '';
+        const d = el('details', { class: 'result' }, el('summary', {}, el('span', { class: 'name', text: name }), chip, el('span', { class: 'by', text: by })));
+        const steps = r.events.map((e) => el('li', {}, `${LAYER[e.layer] || e.layer}: ${e.what}`, e.detail ? ' — ' : '', e.detail ? el('code', { text: e.detail.slice(0, 140) }) : ''));
+        if (!steps.length) steps.push(el('li', { text: r.worked ? 'Nothing stood in the way.' : 'No layer had to act.' }));
+        steps.push(el('li', { text: `Afterwards: score ${r.score ?? 'none'}, status ${r.status}, ${r.mail.length} email${r.mail.length === 1 ? '' : 's'} sent${r.mail.length ? ` (${r.mail.join(', ')})` : ''}.` }));
+        d.append(el('ol', {}, ...steps));
+        return d;
+      }));
+    }
+
+    fetch('data.json').then((r) => r.json()).then((d) => {
+      data = d;
+      const fromHash = data.attacks.find((x) => `#${x.id}` === location.hash);
+      if (fromHash) pick = { location: fromHash.location, goal: fromHash.goal, phrasing: fromHash.phrasing };
+      headline();
+      show();
+    }).catch((err) => { console.error(err); $('headline').tBodies[0].innerHTML = '<tr><td colspan="4">Could not load the results.</td></tr>'; });
+  </script>
+</body>
+</html>

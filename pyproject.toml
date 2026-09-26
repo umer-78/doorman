@@ -1,0 +1,20 @@
+[project]
+name = "doorman"
+version = "0.1.0"
+description = "Prompt-injection defences for an AI recruiting agent, measured against red-team and held-out attacks"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["numpy==2.4.6", "scikit-learn==1.9.1", "reportlab==5.0.1", "pypdf==6.19.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["doorman"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
