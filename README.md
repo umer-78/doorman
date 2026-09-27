@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/umer-78/doorman/actions/workflows/ci.yml/badge.svg)](https://github.com/umer-78/doorman/actions/workflows/ci.yml)
 
+[![Doorman: the live demo](.github/preview.jpg)](https://umer-78.github.io/doorman/)
+
 **Live demo:** https://umer-78.github.io/doorman/ (pick an attack, open its PDF, see what every defence did)
 
 An AI recruiting agent reads every resume and portfolio page applicants send it, and uses
