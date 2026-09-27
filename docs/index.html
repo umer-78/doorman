@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-scene="security">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,17 +75,24 @@
     .loading { color: var(--muted); }
     @media (max-width: 640px) { .card { padding: 16px; } details.result summary .name { min-width: 0; } }
   </style>
+<!-- fx:v2 -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="fx.css">
+<style>:root { --fx-2: #06b6d4; --fx-3: #f59e0b; }</style>
+<!-- /fx:v2 -->
 </head>
 <body>
   <div class="wrap">
+    <!-- fx:v2 --><nav class="fx-nav" aria-label="On this page"><a class="fx-home" href="https://umer-78.github.io/">← All projects</a><a class="fx-gh" href="https://github.com/umer-78/doorman">GitHub</a></nav><!-- /fx:v2 -->
     <header>
-      <a class="crumb" href="https://umer-78.github.io/">← All projects</a>
+      <span class="fx-eyebrow">LLM engineering · Python</span>
       <h1>Doorman</h1>
       <p class="lede">An AI recruiting agent reads every resume and portfolio page it is sent, and some of them talk back. Doorman measures five defences against 60 red-team attacks and 303 injections written by other people, with a model that obeys anything it reads.</p>
       <div class="links">
         <a class="btn primary" href="#try">Try an attack</a>
         <a class="btn" href="https://github.com/umer-78/doorman">Code and method</a>
       </div>
+      <div class="fx-tags" aria-hidden="true"><div><span>python</span><span>llm</span><span>security</span><span>prompt-injection</span><span>guardrails</span><span>agents</span><span>python</span><span>llm</span><span>security</span><span>prompt-injection</span><span>guardrails</span><span>agents</span></div></div>
     </header>
 
     <section class="card" aria-labelledby="h-results">
@@ -244,5 +251,6 @@
       show();
     }).catch((err) => { console.error(err); $('headline').tBodies[0].innerHTML = '<tr><td colspan="4">Could not load the results.</td></tr>'; });
   </script>
+<!-- fx:v2 --><script type="module" src="fx.js"></script><!-- /fx:v2 -->
 </body>
 </html>
