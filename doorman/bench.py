@@ -7,7 +7,7 @@ attacker whose real resume carries one payload.
 """
 import json
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 
 from . import data
 from .attacks import GOALS, LOCATIONS, PHRASINGS, Attack, HIDDEN_STYLE, OTHERS, phrase, succeeded, suite

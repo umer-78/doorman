@@ -16,6 +16,8 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+      - name: Lint
+        run: pipx run ruff check .
       # the resume corpus, BIPIA and Tensor Trust are downloaded once, pinned and hash-checked
       - uses: actions/cache@v4
         with:
